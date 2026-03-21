@@ -59,7 +59,7 @@ export function ProfileNode({ data }: { data: any }) {
             boxShadow: '0 4px 20px rgba(167,139,250,0.1)',
             animation: 'float 6s ease-in-out infinite',
           }}>
-            <Image src="/icon.png" alt="Node-SK" width={68} height={68} />
+            <Image src="/icon.png" alt="Node-SK" width={90} height={90} />
           </div>
 
           <div style={{ flex: 1 }}>

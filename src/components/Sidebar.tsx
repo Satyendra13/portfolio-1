@@ -141,7 +141,7 @@ export default function Sidebar({ collapsed, onToggle, onOpenCommand }: SidebarP
             fontSize: '16px', fontWeight: 900, color: '#a78bfa',
             boxShadow: '0 4px 15px rgba(167,139,250,0.08)',
           }}>
-            <Image src="/icon.png" alt="Sidebar-SK" width={45} height={45} style={{ borderRadius: '16px' }} />
+            <Image src="/icon.png" alt="Sidebar-SK" width={50} height={50} />
           </div>
           <div>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#dce7f7' }}>Satyendra Kumar</div>
