@@ -314,7 +314,7 @@ export default function RoadmapFlow({ sidebarCollapsed, onToggleSidebar }: Roadm
     process.env.NEXT_PUBLIC_NODE_ENV === 'dev';
 
   return (
-    <div style={{ flex: 1, height: '100vh', background: 'var(--background)', position: 'relative' }}>
+    <div style={{ flex: 1, height: '100%', background: 'var(--background)', position: 'relative' }}>
       {/* Ambient background orbs */}
       <div className="ambient-orb" style={{
         width: '500px', height: '500px',
