@@ -336,12 +336,6 @@ export default function Sidebar({ collapsed, onToggle, onOpenCommand }: SidebarP
             <Phone size={10} /> Call
           </a>
         </div>
-        <div style={{
-          fontSize: '10px', color: '#1e2a42', textAlign: 'center',
-          letterSpacing: '0.3px',
-        }}>
-          Built with Next.js &amp; React Flow
-        </div>
       </div>
     </aside>
   );
