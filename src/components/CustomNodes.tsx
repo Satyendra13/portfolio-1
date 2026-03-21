@@ -11,9 +11,9 @@ function Pill({ label, color }: { label: string; color: string }) {
   return (
     <span style={{
       display: 'inline-block',
-      padding: '3px 10px',
+      padding: '4px 12px',
       borderRadius: '20px',
-      fontSize: '10px',
+      fontSize: '11px',
       fontWeight: 700,
       background: `${color}18`,
       border: `1px solid ${color}44`,
@@ -61,30 +61,30 @@ export function ProfileNode({ data }: { data: any }) {
 
           <div style={{ flex: 1 }}>
             <div style={{
-              fontSize: '22px', fontWeight: 900, lineHeight: 1.15, marginBottom: '4px',
+              fontSize: '24px', fontWeight: 900, lineHeight: 1.15, marginBottom: '4px',
               background: 'linear-gradient(135deg, #dce7f7 0%, #a78bfa 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}>
               Satyendra Kumar
             </div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#a78bfa', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={12} />
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#a78bfa', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={13} />
               Software Developer &nbsp;·&nbsp; Full-Stack &amp; AI Integration
             </div>
             <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#4a5a7a' }}>
-                <MapPin size={10} /> Gurugram, Haryana
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#4a5a7a' }}>
+                <MapPin size={11} /> Gurugram, Haryana
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#4a5a7a' }}>
-                <Mail size={10} /> satyendra9173@gmail.com
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#4a5a7a' }}>
+                <Mail size={11} /> satyendra9173@gmail.com
               </div>
             </div>
           </div>
         </div>
 
         {/* Description */}
-        <p style={{ fontSize: '12px', color: '#5a6a88', lineHeight: '1.75', margin: '0 0 14px' }}>
+        <p style={{ fontSize: '14px', color: '#6a7e9e', lineHeight: '1.65', margin: '0 0 16px' }}>
           {data.description || 'Full-stack Software Developer building scalable AI-integrated web applications.'}
         </p>
 
@@ -95,9 +95,9 @@ export function ProfileNode({ data }: { data: any }) {
           border: '1px solid rgba(255,255,255,0.05)',
         }}>
           {[
-            { value: '2+', label: 'yrs exp', color: '#00d4ff' },
-            { value: '3', label: 'projects', color: '#a78bfa' },
-            { value: '4', label: 'companies', color: '#f59e0b' },
+            { value: '2.5+', label: 'yrs exp', color: '#00d4ff' },
+            { value: '4', label: 'projects', color: '#a78bfa' },
+            { value: '2', label: 'companies', color: '#f59e0b' },
             { value: '10+', label: 'technologies', color: '#34d399' },
           ].map((stat, i) => (
             <div key={i} style={{
@@ -105,8 +105,8 @@ export function ProfileNode({ data }: { data: any }) {
               background: 'rgba(255,255,255,0.02)',
               borderRight: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none',
             }}>
-              <div style={{ fontSize: '14px', fontWeight: 800, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
-              <div style={{ fontSize: '8px', fontWeight: 600, color: '#3a4a68', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>{stat.label}</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
+              <div style={{ fontSize: '9px', fontWeight: 600, color: '#4a5a7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>{stat.label}</div>
             </div>
           ))}
         </div>
@@ -146,10 +146,10 @@ export function ProfileNode({ data }: { data: any }) {
       </div>
 
       {/* Handles — all sides */}
-      <Handle type="source" position={Position.Top}    id="top"    style={{ background: '#a78bfa', width: 8, height: 8, border: '2px solid #060810' }} />
+      <Handle type="source" position={Position.Top} id="top" style={{ background: '#a78bfa', width: 8, height: 8, border: '2px solid #060810' }} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={{ background: '#f59e0b', width: 8, height: 8, border: '2px solid #060810' }} />
-      <Handle type="source" position={Position.Left}   id="left"   style={{ background: '#34d399', width: 8, height: 8, border: '2px solid #060810' }} />
-      <Handle type="source" position={Position.Right}  id="right"  style={{ background: '#00d4ff', width: 8, height: 8, border: '2px solid #060810' }} />
+      <Handle type="source" position={Position.Left} id="left" style={{ background: '#34d399', width: 8, height: 8, border: '2px solid #060810' }} />
+      <Handle type="source" position={Position.Right} id="right" style={{ background: '#00d4ff', width: 8, height: 8, border: '2px solid #060810' }} />
     </div>
   );
 }
@@ -159,7 +159,7 @@ export function ProjectNode({ data }: { data: any }) {
   const color = data.color || '#00d4ff';
   return (
     <div style={{
-      width: '310px',
+      width: '340px',
       background: 'linear-gradient(180deg, #0c1018 0%, #0a0e18 100%)',
       borderRadius: '14px',
       border: `1px solid ${color}44`,
@@ -219,20 +219,20 @@ export function ProjectNode({ data }: { data: any }) {
         </div>
       </div>
 
-      <div style={{ padding: '14px 16px 16px' }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#dce7f7', marginBottom: '6px', lineHeight: 1.35 }}>
+      <div style={{ padding: '16px 18px 18px' }}>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: '#dce7f7', marginBottom: '8px', lineHeight: 1.35 }}>
           {data.title}
         </div>
-        <p style={{ fontSize: '11px', color: '#5a6a88', lineHeight: '1.65', margin: '0 0 10px' }}>
+        <p style={{ fontSize: '13px', color: '#6a7e9e', lineHeight: '1.65', margin: '0 0 14px' }}>
           {data.desc}
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
           {(data.stack || []).map((s: string) => <Pill key={s} label={s} color={color} />)}
         </div>
       </div>
 
       <Handle type="target" position={Position.Bottom} style={{ background: color, width: 8, height: 8, border: '2px solid #060810' }} />
-      <Handle type="source" position={Position.Top}    style={{ background: color, width: 8, height: 8, border: '2px solid #060810' }} />
+      <Handle type="source" position={Position.Top} style={{ background: color, width: 8, height: 8, border: '2px solid #060810' }} />
     </div>
   );
 }
@@ -245,7 +245,7 @@ export function ExperienceNode({ data }: { data: any }) {
 
   return (
     <div style={{
-      width: '310px',
+      width: '340px',
       background: 'linear-gradient(180deg, #0c1018 0%, #0a0e18 100%)',
       borderRadius: '12px',
       border: `1px solid ${color}38`,
@@ -273,30 +273,30 @@ export function ExperienceNode({ data }: { data: any }) {
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#dce7f7', marginBottom: '3px', lineHeight: 1.3 }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#dce7f7', marginBottom: '4px', lineHeight: 1.3 }}>
             {data.title}
           </div>
-          <div style={{ fontSize: '11px', color: '#5a6a88', marginBottom: '8px', fontWeight: 500 }}>
+          <div style={{ fontSize: '12px', color: '#6a7e9e', marginBottom: '10px', fontWeight: 500 }}>
             {data.company}
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: data.highlight ? '8px' : 0 }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: data.highlight ? '10px' : 0 }}>
             <Pill label={data.duration} color={color} />
             {data.grade && <Pill label={data.grade} color="#a78bfa" />}
           </div>
 
           {data.highlight && (
             <div style={{
-              fontSize: '10px', color: '#4a5a7a', lineHeight: '1.6',
-              borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px', marginTop: '2px',
+              fontSize: '12px', color: '#5a6a88', lineHeight: '1.6',
+              borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '10px', marginTop: '4px',
             }}>↳ {data.highlight}</div>
           )}
         </div>
       </div>
 
-      <Handle type="target" position={Position.Top}    style={{ background: color, width: 7, height: 7, border: '2px solid #060810', left: '50%' }} />
+      <Handle type="target" position={Position.Top} style={{ background: color, width: 7, height: 7, border: '2px solid #060810', left: '50%' }} />
       <Handle type="source" position={Position.Bottom} style={{ background: color, width: 7, height: 7, border: '2px solid #060810', left: '50%' }} />
-      <Handle type="target" position={Position.Right}  id="right"  style={{ background: color, width: 7, height: 7, border: '2px solid #060810' }} />
+      <Handle type="target" position={Position.Right} id="right" style={{ background: color, width: 7, height: 7, border: '2px solid #060810' }} />
     </div>
   );
 }
@@ -308,7 +308,7 @@ export function SkillNode({ data }: { data: any }) {
 
   return (
     <div style={{
-      width: '290px',
+      width: '320px',
       background: 'linear-gradient(180deg, #0c1018 0%, #0a0e18 100%)',
       borderRadius: '12px',
       border: `1px solid ${color}38`,
@@ -334,8 +334,8 @@ export function SkillNode({ data }: { data: any }) {
             <IconComp size={16} color={color} />
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#dce7f7' }}>{data.title}</div>
-            <div style={{ fontSize: '10px', color: '#3a4a68', marginTop: '1px' }}>{data.subtitle}</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#dce7f7' }}>{data.title}</div>
+            <div style={{ fontSize: '12px', color: '#4a5a7a', marginTop: '2px' }}>{data.subtitle}</div>
           </div>
         </div>
 
@@ -345,8 +345,8 @@ export function SkillNode({ data }: { data: any }) {
         </div>
       </div>
 
-      <Handle type="target" position={Position.Top}    id="top"    style={{ background: color, width: 7, height: 7, border: '2px solid #060810' }} />
-      <Handle type="target" position={Position.Left}   id="left"   style={{ background: color, width: 7, height: 7, border: '2px solid #060810' }} />
+      <Handle type="target" position={Position.Top} id="top" style={{ background: color, width: 7, height: 7, border: '2px solid #060810' }} />
+      <Handle type="target" position={Position.Left} id="left" style={{ background: color, width: 7, height: 7, border: '2px solid #060810' }} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={{ background: color, width: 7, height: 7, border: '2px solid #060810' }} />
     </div>
   );

@@ -76,24 +76,35 @@ export default function Sidebar({ collapsed, onToggle, onOpenCommand }: SidebarP
     if (!node) return;
     const w = (node.measured?.width ?? 300) / 2;
     const h = (node.measured?.height ?? 120) / 2;
-    setCenter(node.position.x + w, node.position.y + h, { duration: 750, zoom: 1.25 });
+    
+    let zoomLevel = 1.25;
+    if (window.innerWidth <= 768) {
+      // Calculate perfect zoom to fit node in mobile screen with 40px padding
+      const targetWidth = window.innerWidth - 40;
+      zoomLevel = targetWidth / (node.measured?.width ?? 300);
+      // Cap zoom so it doesn't overly zoom in on smaller nodes
+      if (zoomLevel > 1.0) zoomLevel = 1.0;
+    }
+    
+    setCenter(node.position.x + w, node.position.y + h, { duration: 750, zoom: zoomLevel });
+    
+    if (onToggle && window.innerWidth <= 1024) {
+      setTimeout(() => onToggle(), 150); // slight delay so the camera starts panning before the drawer vanishes
+    }
   };
 
   return (
-    <aside style={{
-      width: collapsed ? '0px' : '290px',
-      minWidth: collapsed ? '0px' : '290px',
-      backgroundColor: 'var(--sidebar-bg)',
-      borderRight: collapsed ? 'none' : '1px solid var(--border-color)',
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      overflowY: 'auto',
-      overflowX: 'hidden',
-      flexShrink: 0,
-      transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      position: 'relative',
-    }}>
+    <aside
+      className="portfolio-sidebar"
+      data-collapsed={collapsed}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        flexShrink: 0,
+      }}
+    >
       {/* Brand header */}
       <div style={{
         padding: '20px 20px 16px',

@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import RoadmapFlow from '@/components/RoadmapFlow';
-import MobileLayout from '@/components/MobileLayout';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import { ReactFlowProvider } from '@xyflow/react';
 
@@ -11,6 +10,12 @@ export default function Home() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (window.innerWidth <= 1024) {
+      setSidebarCollapsed(true);
+    }
+  }, []);
 
   return (
     <ReactFlowProvider>
@@ -41,7 +46,6 @@ export default function Home() {
       </main>
 
       {/* Mobile Layout */}
-      <MobileLayout />
     </ReactFlowProvider>
   );
 }

@@ -237,24 +237,47 @@ body {
   position: relative;
 }
 
-/* ─── Mobile Layout ──────────────────────────────────────────── */
-.mobile-layout {
-  display: none;
-  flex-direction: column;
-  width: 100vw;
+/* ─── Sidebar Layout ───────────────────────────────────────────── */
+.portfolio-sidebar {
+  width: 290px;
+  min-width: 290px;
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
   height: 100vh;
-  overflow: hidden;
-  background: var(--background);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  z-index: 50;
+}
+
+.portfolio-sidebar[data-collapsed="true"] {
+  width: 0px;
+  min-width: 0px;
+  border-right: none;
 }
 
 /* ─── Responsive Breakpoints ─────────────────────────────────── */
 @media (max-width: 768px) {
-  .portfolio-main {
+  /* We no longer hide portfolio-main because user wants desktop map on mobile */
+  .mobile-layout {
     display: none !important;
   }
-  .mobile-layout {
-    display: flex !important;
+  
+  .portfolio-sidebar {
+    position: absolute;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    width: 300px;
+    min-width: 300px;
+    transform: translateX(0);
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+  }
+  
+  .portfolio-sidebar[data-collapsed="true"] {
+    width: 300px;
+    min-width: 300px;
+    transform: translateX(-100%);
+    box-shadow: none;
   }
 }
 
@@ -589,7 +612,7 @@ body {
   color: var(--purple);
 }
 
-@media (max-width: 1024px) and (min-width: 769px) {
+@media (max-width: 1024px) {
   .sidebar-toggle {
     display: flex;
   }
