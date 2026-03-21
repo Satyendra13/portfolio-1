@@ -24,8 +24,8 @@ const DETAIL_MAP: Record<string, any> = {
     ],
     skills: ['JavaScript', 'Python', 'PHP', 'SQL', 'ReactJS', 'NextJS', 'Node.js', 'Laravel', 'MongoDB', 'Docker'],
     links: [
-      { label: 'GitHub', url: 'https://github.com', icon: 'github', color: '#a78bfa' },
-      { label: 'LinkedIn', url: 'https://linkedin.com', icon: 'linkedin', color: '#00d4ff' },
+      { label: 'GitHub', url: 'https://github.com/Satyendra13', icon: 'github', color: '#a78bfa' },
+      { label: 'LinkedIn', url: 'https://linkedin.com/in/satyendra13', icon: 'linkedin', color: '#00d4ff' },
     ],
     contact: { email: 'satyendra9173@gmail.com', phone: '+91-9128649473' },
   },
@@ -47,7 +47,7 @@ const DETAIL_MAP: Record<string, any> = {
       'Detailed analytics dashboard and progress tracking UI',
     ],
     skills: ['ReactJS', 'JavaScript', 'MongoDB', 'NodeJS', 'ExpressJS', 'Gemini AI', 'Microservices', 'Docker'],
-    links: [{ label: 'View Project', url: '#', color: '#00d4ff' }],
+    links: [{ label: 'View Project', url: 'https://flash-mind-app.vercel.app/', color: '#00d4ff' }],
   },
 
   'proj-2': {
@@ -64,7 +64,7 @@ const DETAIL_MAP: Record<string, any> = {
       'Low-latency event-driven architecture on Node.js + Express',
     ],
     skills: ['ReactJS', 'JavaScript', 'Socket.IO', 'NodeJS', 'ExpressJS'],
-    links: [{ label: 'View Project', url: '#', color: '#a78bfa' }],
+    links: [{ label: 'View Project', url: 'https://editor-code-sync.onrender.com/', color: '#a78bfa' }],
   },
 
   'proj-3': {
@@ -81,7 +81,7 @@ const DETAIL_MAP: Record<string, any> = {
       'Clean, responsive React component architecture',
     ],
     skills: ['React', 'JavaScript', 'HTML/CSS'],
-    links: [{ label: 'View Project', url: '#', color: '#f59e0b' }],
+    links: [{ label: 'View Project', url: 'https://billing-expo.onrender.com/', color: '#f59e0b' }],
   },
 
   'edu-1': {

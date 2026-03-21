@@ -506,8 +506,8 @@ function ProfileSection({ onDetail }: { onDetail: (d: any) => void }) {
       <div className="mobile-card" style={{ animationDelay: '0.2s' }}>
         <div style={{ padding: '16px', display: 'flex', gap: '10px' }}>
           {[
-            { icon: <Github size={16} />, label: 'GitHub', color: '#a78bfa', href: 'https://github.com' },
-            { icon: <Linkedin size={16} />, label: 'LinkedIn', color: '#00d4ff', href: 'https://linkedin.com' },
+            { icon: <Github size={16} />, label: 'GitHub', color: '#a78bfa', href: 'https://github.com/Satyendra13' },
+            { icon: <Linkedin size={16} />, label: 'LinkedIn', color: '#00d4ff', href: 'https://linkedin.com/in/satyendra13' },
             { icon: <Download size={16} />, label: 'Resume', color: '#34d399', href: RESUME_URL, download: true },
           ].map(({ icon, label, color, href, download }) => (
             <a key={label} href={href} download={download ? 'Satyendra_Kumar_Resume.pdf' : undefined}
