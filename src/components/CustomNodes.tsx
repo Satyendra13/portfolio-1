@@ -5,6 +5,7 @@ import {
   GraduationCap, Mail, Phone, MapPin, Github, Linkedin,
   Sparkles, ArrowUpRight
 } from 'lucide-react';
+import Image from 'next/image';
 
 // ─── Shared pill tag ─────────────────────────────────────────
 function Pill({ label, color }: { label: string; color: string }) {
@@ -57,7 +58,9 @@ export function ProfileNode({ data }: { data: any }) {
             letterSpacing: '-1px',
             boxShadow: '0 4px 20px rgba(167,139,250,0.1)',
             animation: 'float 6s ease-in-out infinite',
-          }}>SK</div>
+          }}>
+            <Image src="/icon.png" alt="Node-SK" width={68} height={68} />
+          </div>
 
           <div style={{ flex: 1 }}>
             <div style={{

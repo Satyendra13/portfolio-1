@@ -6,6 +6,7 @@ import {
   MapPin, Mail, Phone, Github, Linkedin, ExternalLink,
   ChevronRight, Download, Sparkles, Calendar, X, ArrowUpRight
 } from 'lucide-react';
+import Image from 'next/image';
 
 type Section = 'profile' | 'projects' | 'experience' | 'education' | 'skills';
 
@@ -441,7 +442,9 @@ function ProfileSection({ onDetail }: { onDetail: (d: any) => void }) {
               border: '1.5px solid rgba(167,139,250,0.4)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '18px', fontWeight: 900, color: '#a78bfa',
-            }}>SK</div>
+            }}>
+              <Image src="/icon.png" alt="Mobile-SK" width={68} height={68} style={{ borderRadius: '16px' }} />
+            </div>
             <div>
               <h1 className="gradient-text" style={{
                 fontSize: '22px', fontWeight: 900, marginBottom: '4px', letterSpacing: '-0.5px',
