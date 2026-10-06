@@ -1,0 +1,44 @@
+tenant_id: acme_telecom
+display_name: Acme Telecom
+supported_languages:
+  - en
+  - hi
+voices:
+  en: "21m00Tcm4TlvDq8ikWAM"
+  hi: "AZnzlk1XvdvUeBnXmlld"
+script:
+  greeting:
+    en: "Thank you for calling Acme Telecom. My name is Alex, your AI voice assistant. How can I help you today?"
+    hi: "एक्मे टेलीकॉम में कॉल करने के लिए धन्यवाद। मेरा नाम एलेक्स है। मैं आपकी क्या मदद कर सकता हूँ?"
+  not_found:
+    en: "I do not have that specific information in my knowledge base. Would you like me to schedule a callback or connect you with a human specialist?"
+    hi: "मेरे पास इसके बारे में जानकारी नहीं है। क्या आप चाहते हैं कि मैं कॉलबैक शेड्यूल करूं या किसी विशेषज्ञ से बात कराऊं?"
+  closing:
+    en: "Thank you for contacting Acme Telecom. Have a wonderful day!"
+    hi: "एक्मे टेलीकॉम संपर्क करने के लिए धन्यवाद। आपका दिन शुभ हो!"
+verification:
+  factors:
+    - order_id
+    - phone_last4
+  max_attempts: 3
+automatable_intents:
+  - order_status
+  - faq
+  - complaint
+  - callback
+escalation_rules:
+  sentiment_threshold: -0.6
+  keywords:
+    - legal
+    - fraud
+    - chargeback
+    - cancel account
+  max_kb_misses: 2
+kb_min_score: 0.55
+adapter:
+  type: mock_rest
+  base_url: http://localhost:9000/acme_telecom
+baseline_human_cost_per_call: 4.50
+ai_cost_per_min: 0.12
+human_cost_per_min: 0.75
+baseline_aht_seconds: 360

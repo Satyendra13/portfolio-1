@@ -1,0 +1,53 @@
+{
+  "in_kb": [
+    {"tenant_id": "acme_telecom", "query": "What is the monthly price of the Starter Mobile Plan?", "expected_keyword": "$30"},
+    {"tenant_id": "acme_telecom", "query": "How much does the Unlimited Ultra Mobile Plan cost?", "expected_keyword": "$60"},
+    {"tenant_id": "acme_telecom", "query": "What are the speeds for Fiber Home Broadband 1000?", "expected_keyword": "1 Gbps"},
+    {"tenant_id": "acme_telecom", "query": "When are bills generated and due every month?", "expected_keyword": "due on the 20th"},
+    {"tenant_id": "acme_telecom", "query": "How much is the late payment fee?", "expected_keyword": "$15"},
+    {"tenant_id": "acme_telecom", "query": "How can I get a $5 monthly bill credit?", "expected_keyword": "Auto-pay"},
+    {"tenant_id": "acme_telecom", "query": "How much does a replacement SIM card cost at retail stores?", "expected_keyword": "$10"},
+    {"tenant_id": "acme_telecom", "query": "When am I eligible for a mobile device upgrade?", "expected_keyword": "12 consecutive months"},
+    {"tenant_id": "acme_telecom", "query": "How do I troubleshoot slow fiber internet speeds?", "expected_keyword": "restarting the fiber optical network terminal"},
+    {"tenant_id": "acme_telecom", "query": "What is the APN Name for Acme Mobile data?", "expected_keyword": "acme.net"},
+    {"tenant_id": "acme_telecom", "query": "How many days advance notice is required to cancel service?", "expected_keyword": "30 days"},
+    {"tenant_id": "acme_telecom", "query": "What is the fee if I do not return my router after cancellation?", "expected_keyword": "$150"},
+    {"tenant_id": "acme_telecom", "query": "Within how many days must equipment be returned after cancellation?", "expected_keyword": "14 days"},
+    {"tenant_id": "acme_telecom", "query": "Is international texting included in the Unlimited Ultra plan?", "expected_keyword": "50 countries"},
+    {"tenant_id": "acme_telecom", "query": "Is there a data cap on Fiber Home Broadband 1000?", "expected_keyword": "no data caps"},
+
+    {"tenant_id": "quickcart", "query": "What is the minimum order amount for free standard shipping?", "expected_keyword": "$50"},
+    {"tenant_id": "quickcart", "query": "How long does standard shipping take?", "expected_keyword": "3 to 5 business days"},
+    {"tenant_id": "quickcart", "query": "What is the cost of express shipping?", "expected_keyword": "$12"},
+    {"tenant_id": "quickcart", "query": "What is the cutoff time for same-day dispatch?", "expected_keyword": "2 PM EST"},
+    {"tenant_id": "quickcart", "query": "Within how many days can items be returned?", "expected_keyword": "30 days"},
+    {"tenant_id": "quickcart", "query": "Is return shipping free for store credit returns?", "expected_keyword": "free of charge"},
+    {"tenant_id": "quickcart", "query": "How much is deducted for original payment method refund returns?", "expected_keyword": "$4.99"},
+    {"tenant_id": "quickcart", "query": "How long does it take to process a refund after warehouse arrival?", "expected_keyword": "5 to 7 business days"},
+    {"tenant_id": "quickcart", "query": "Within how many minutes can an order be modified or canceled?", "expected_keyword": "60 minutes"},
+    {"tenant_id": "quickcart", "query": "How will I receive my order tracking number?", "expected_keyword": "emailed automatically"},
+    {"tenant_id": "quickcart", "query": "Within how many hours must damaged items be reported?", "expected_keyword": "48 hours"},
+    {"tenant_id": "quickcart", "query": "What is required when reporting a missing or damaged item?", "expected_keyword": "photos"},
+    {"tenant_id": "quickcart", "query": "Do QuickCart Digital Gift Cards expire?", "expected_keyword": "never expire"},
+    {"tenant_id": "quickcart", "query": "Can promo codes be combined with clearance sale items?", "expected_keyword": "cannot be stacked"},
+    {"tenant_id": "quickcart", "query": "Are express shipping orders delivered within 1 to 2 business days?", "expected_keyword": "1 to 2 business days"}
+  ],
+  "out_of_kb": [
+    {"tenant_id": "acme_telecom", "query": "What is the stock ticker symbol for Acme Telecom on the NYSE?"},
+    {"tenant_id": "acme_telecom", "query": "Do you offer satellite television bundles with HBO Max?"},
+    {"tenant_id": "acme_telecom", "query": "What is the CEO's personal cell phone number?"},
+    {"tenant_id": "acme_telecom", "query": "Can I trade in a broken microwave for a bill credit?"},
+    {"tenant_id": "acme_telecom", "query": "What is the discount rate for employees of SpaceX?"},
+    {"tenant_id": "acme_telecom", "query": "Do you install fiber optic cables in London, UK?"},
+    {"tenant_id": "acme_telecom", "query": "What was Acme Telecom's net profit in the year 2012?"},
+    {"tenant_id": "acme_telecom", "query": "Can I pay my bill using Bitcoin cryptocurrency?"},
+
+    {"tenant_id": "quickcart", "query": "What brand of coffee beans does the QuickCart CEO drink?"},
+    {"tenant_id": "quickcart", "query": "Do you sell live African elephants with free shipping?"},
+    {"tenant_id": "quickcart", "query": "Can I exchange my old 2005 car for store credit on QuickCart?"},
+    {"tenant_id": "quickcart", "query": "What is the recipe for baking a chocolate croissant?"},
+    {"tenant_id": "quickcart", "query": "Do you offer lifetime medical insurance for customer loyalty members?"},
+    {"tenant_id": "quickcart", "query": "What is the physical address of your secret underground bunker?"},
+    {"tenant_id": "quickcart", "query": "Can I return a item purchased from Amazon to QuickCart?"}
+  ]
+}

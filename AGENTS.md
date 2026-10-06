@@ -1,0 +1,8 @@
+- Read docs/AsistLine-build-plan.md fully before any task.
+- Never hard-code model names, voice IDs, API keys, thresholds. Use env or tenant config.
+- Every DB query on tenant data must filter by tenant_id via the repository layer.
+- The voice agent must never speak policy/account facts that are not from KB chunks or tool results.
+- Async everywhere in the API and worker. No blocking calls in the audio path.
+- Every milestone ships with tests and a short docs/ note. Run `make test` before marking done.
+- Prefer small typed modules; Pydantic schemas for every API and LLM structured output.
+- If a requirement is ambiguous, write the assumption in docs/assumptions.md and continue.

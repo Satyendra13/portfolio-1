@@ -1,0 +1,44 @@
+tenant_id: quickcart
+display_name: QuickCart E-Commerce
+supported_languages:
+  - en
+  - hi
+voices:
+  en: "EXAVITQu4vr4xnSDxMaL"
+  hi: "AZnzlk1XvdvUeBnXmlld"
+script:
+  greeting:
+    en: "Welcome to QuickCart Customer Support! I am Maya, your automated assistant. How can I assist with your order today?"
+    hi: "क्विककार्ट सपोर्ट में आपका स्वागत है! मैं माया हूँ। मैं आपके ऑर्डर में कैसे मदद कर सकती हूँ?"
+  not_found:
+    en: "I apologize, but I don't have access to those details in our store policies. Would you like me to transfer you to a support agent or book a callback?"
+    hi: "क्षमा करें, मेरे पास इसके बारे में जानकारी नहीं है। क्या मैं आपको प्रतिनिधि से जोड़ूं या कॉलबैक तय करूं?"
+  closing:
+    en: "Thank you for shopping with QuickCart! Goodbye."
+    hi: "क्विककार्ट के साथ खरीदारी करने के लिए धन्यवाद! फिर मिलते हैं।"
+verification:
+  factors:
+    - order_id
+    - phone_last4
+  max_attempts: 3
+automatable_intents:
+  - order_status
+  - account_inquiry
+  - faq
+  - callback
+escalation_rules:
+  sentiment_threshold: -0.6
+  keywords:
+    - refund
+    - fraud
+    - representative
+    - manager
+  max_kb_misses: 2
+kb_min_score: 0.55
+adapter:
+  type: mock_rest
+  base_url: http://localhost:9000/quickcart
+baseline_human_cost_per_call: 5.00
+ai_cost_per_min: 0.12
+human_cost_per_min: 0.80
+baseline_aht_seconds: 300

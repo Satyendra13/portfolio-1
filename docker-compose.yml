@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: asistline-postgres
+    environment:
+      POSTGRES_USER: asistline
+      POSTGRES_PASSWORD: asistline_secret
+      POSTGRES_DB: asistline_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asistline -d asistline_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  livekit:
+    image: livekit/livekit-server:v1.6.0
+    container_name: asistline-livekit
+    command: --dev --bind 0.0.0.0
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    environment:
+      LIVEKIT_KEYS: "devkey: secret"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: asistline-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://asistline:asistline_secret@postgres:5432/asistline_db
+      - LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: asistline-worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://asistline:asistline_secret@postgres:5432/asistline_db
+      - LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+      - API_BASE_URL=http://api:8000
+    env_file:
+      - .env
+    depends_on:
+      - api
+      - livekit
+
+  mock-backends:
+    build:
+      context: .
+      dockerfile: apps/mock-backends/Dockerfile
+    container_name: asistline-mock-backends
+    ports:
+      - "9000:9000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: asistline-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
