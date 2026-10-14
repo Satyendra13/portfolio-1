@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AsistLine AI - LiveKit Plumbing Test (M2)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- LiveKit Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.6.2/dist/livekit-client.umd.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-6">
+  <div class="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
+    <div class="space-y-1">
+      <div class="flex items-center space-x-2">
+        <span class="inline-block w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
+        <h1 class="text-xl font-bold tracking-tight text-white">LiveKit Connectivity Test (M2)</h1>
+      </div>
+      <p class="text-sm text-slate-400">Validate LiveKit WebRTC credentials, token issuance, and room connectivity.</p>
+    </div>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Room Name</label>
+        <input id="roomName" type="text" value="test-room-01" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase font-semibold text-slate-400 mb-1">Participant Identity</label>
+        <input id="identity" type="text" value="tester-human-01" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div class="flex space-x-3 pt-2">
+        <button id="joinBtn" onclick="joinRoom()" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-[0.98] transition font-medium text-sm py-2.5 rounded-lg shadow-lg shadow-blue-500/20">
+          Join Room
+        </button>
+        <button id="leaveBtn" onclick="leaveRoom()" disabled class="flex-1 bg-rose-600/80 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium text-sm py-2.5 rounded-lg">
+          Leave Room
+        </button>
+      </div>
+    </div>
+
+    <div class="border-t border-slate-800 pt-4 space-y-3">
+      <div class="flex items-center justify-between text-xs text-slate-400">
+        <span>Connection Status:</span>
+        <span id="connStatus" class="font-mono text-amber-400 font-semibold">Disconnected</span>
+      </div>
+      <div class="flex items-center justify-between text-xs text-slate-400">
+        <span>Room:</span>
+        <span id="activeRoom" class="font-mono text-slate-300">-</span>
+      </div>
+      <div class="flex items-center justify-between text-xs text-slate-400">
+        <span>Participants in Room:</span>
+        <span id="participantCount" class="font-mono text-slate-300">0</span>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <label class="block text-xs uppercase font-semibold text-slate-400">Live Diagnostics Log</label>
+      <div id="logBox" class="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs font-mono text-slate-400 h-40 overflow-y-auto space-y-1">
+        <div>[ready] Waiting to connect...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentRoom = null;
+
+    function log(msg, color = 'text-slate-400') {
+      const box = document.getElementById('logBox');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = color;
+      div.textContent = `[${time}] ${msg}`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function joinRoom() {
+      const roomName = document.getElementById('roomName').value.trim();
+      const identity = document.getElementById('identity').value.trim();
+      const joinBtn = document.getElementById('joinBtn');
+      const leaveBtn = document.getElementById('leaveBtn');
+      const connStatus = document.getElementById('connStatus');
+
+      if (!roomName || !identity) {
+        alert('Please specify room name and participant identity.');
+        return;
+      }
+
+      joinBtn.disabled = true;
+      connStatus.textContent = 'Requesting token...';
+      connStatus.className = 'font-mono text-blue-400 font-semibold';
+      log(`Fetching token for ${identity} in room ${roomName}...`, 'text-blue-400');
+
+      try {
+        const res = await fetch('/livekit/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room_name: roomName,
+            participant_identity: identity,
+            role: 'customer'
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Token fetch failed');
+        }
+
+        const data = await res.json();
+        log(`Token acquired successfully. Server: ${data.server_url}`, 'text-emerald-400');
+
+        connStatus.textContent = 'Connecting WebRTC...';
+        log('Initializing LiveKit Room client...');
+
+        currentRoom = new LivekitClient.Room({
+          adaptiveStream: true,
+          dynacast: true,
+        });
+
+        currentRoom.on(LivekitClient.RoomEvent.Connected, () => {
+          connStatus.textContent = 'Connected (Room Active)';
+          connStatus.className = 'font-mono text-emerald-400 font-semibold';
+          document.getElementById('activeRoom').textContent = currentRoom.name;
+          document.getElementById('participantCount').textContent = currentRoom.remoteParticipants.size + 1;
+          leaveBtn.disabled = false;
+          log(`Connected to LiveKit room: ${currentRoom.name}!`, 'text-emerald-400 font-bold');
+        });
+
+        currentRoom.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+          log(`Participant joined: ${p.identity}`, 'text-indigo-400');
+          document.getElementById('participantCount').textContent = currentRoom.remoteParticipants.size + 1;
+        });
+
+        currentRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) => {
+          log(`Participant left: ${p.identity}`, 'text-amber-400');
+          document.getElementById('participantCount').textContent = currentRoom.remoteParticipants.size + 1;
+        });
+
+        currentRoom.on(LivekitClient.RoomEvent.Disconnected, () => {
+          connStatus.textContent = 'Disconnected';
+          connStatus.className = 'font-mono text-slate-500 font-semibold';
+          joinBtn.disabled = false;
+          leaveBtn.disabled = true;
+          document.getElementById('activeRoom').textContent = '-';
+          document.getElementById('participantCount').textContent = '0';
+          log('Disconnected from room.', 'text-rose-400');
+        });
+
+        await currentRoom.connect(data.server_url, data.token);
+      } catch (err) {
+        log(`Error: ${err.message}`, 'text-rose-400 font-bold');
+        connStatus.textContent = 'Failed';
+        connStatus.className = 'font-mono text-rose-500 font-semibold';
+        joinBtn.disabled = false;
+        leaveBtn.disabled = true;
+      }
+    }
+
+    async function leaveRoom() {
+      if (currentRoom) {
+        log('Leaving room...');
+        await currentRoom.disconnect();
+        currentRoom = null;
+      }
+    }
+  </script>
+</body>
+</html>
