@@ -46,7 +46,8 @@ class GeminiLLMClient:
                     max_output_tokens=350,
                     system_instruction=system_instruction if system_instruction else None,
                 )
-                response = client.models.generate_content(
+                response = await asyncio.to_thread(
+                    client.models.generate_content,
                     model=model,
                     contents=contents,
                     config=config,
@@ -76,7 +77,8 @@ class GeminiLLMClient:
                     response_mime_type="application/json",
                     system_instruction=INTENT_DETECTION_SYSTEM_PROMPT,
                 )
-                response = client.models.generate_content(
+                response = await asyncio.to_thread(
+                    client.models.generate_content,
                     model=model,
                     contents=prompt,
                     config=config,

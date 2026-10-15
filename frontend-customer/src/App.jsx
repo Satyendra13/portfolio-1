@@ -149,22 +149,50 @@ export default function App() {
       });
       roomRef.current = room;
 
+      const attachAudioTrack = (track, identity) => {
+        const audioId = `audio-${identity}`;
+        const existing = document.getElementById(audioId);
+        if (existing) {
+          try {
+            existing.pause();
+            existing.remove();
+          } catch (e) {}
+        }
+        const el = track.attach();
+        el.id = audioId;
+        el.autoplay = true;
+        el.muted = false;
+        el.volume = 1.0;
+        document.body.appendChild(el);
+        audioElRef.current = el;
+        el.play().catch((err) => {
+          console.warn('Browser autoplay prevented audio play:', err);
+        });
+      };
+
       // Track subscribed (hear AI or human agent)
       room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
         if (track.kind === 'audio') {
           console.log(`Audio track subscribed from ${participant.identity}`);
-          const el = track.attach();
-          el.id = `audio-${participant.identity}`;
-          el.autoplay = true;
-          document.body.appendChild(el);
-          audioElRef.current = el;
-          el.play().catch((err) => {
-            console.warn('Browser autoplay prevented audio play:', err);
-          });
+          attachAudioTrack(track, participant.identity);
 
           if (participant.identity.startsWith('agent-')) {
             setActiveSpecialist(participant.name || 'Tier-2 Human Specialist');
             setCallState('active');
+          }
+        }
+      });
+
+      room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+        if (track.kind === 'audio') {
+          const audioId = `audio-${participant.identity}`;
+          const existing = document.getElementById(audioId);
+          if (existing) {
+            try {
+              existing.pause();
+              existing.srcObject = null;
+              existing.remove();
+            } catch (e) {}
           }
         }
       });
@@ -208,17 +236,12 @@ export default function App() {
 
       await room.connect(server_url, token);
 
-      // Attach any already published audio tracks
-      room.remoteParticipants.forEach((p) => {
-        p.trackPublications.forEach((pub) => {
-          if (pub.track && pub.track.kind === 'audio') {
-            console.log(`Attaching pre-existing track from ${p.identity}`);
-            const el = pub.track.attach();
-            el.id = `audio-${p.identity}`;
-            el.autoplay = true;
-            document.body.appendChild(el);
-            audioElRef.current = el;
-            el.play().catch(console.warn);
+      // Attach any remote audio tracks that were already published before connect finished
+      room.remoteParticipants.forEach((participant) => {
+        participant.trackPublications.forEach((publication) => {
+          if (publication.track && publication.track.kind === 'audio') {
+            console.log(`Attaching pre-existing remote audio track from ${participant.identity}`);
+            attachAudioTrack(publication.track, participant.identity);
           }
         });
       });
@@ -238,11 +261,6 @@ export default function App() {
       setIsMuted(false);
       setCallState('active');
 
-      // Add local initial welcome caption based on tenant
-      const welcome = selectedTenant.script_config?.welcome_message?.[language] ||
-        selectedTenant.script_config?.welcome_message?.en ||
-        'Connecting with AI Voice Agent...';
-      setCaptions([{ speaker: 'ai', text: welcome, time: new Date() }]);
 
     } catch (err) {
       console.error('Call connection error:', err);
@@ -268,10 +286,14 @@ export default function App() {
       await roomRef.current.disconnect();
       roomRef.current = null;
     }
-    if (audioElRef.current) {
-      audioElRef.current.remove();
-      audioElRef.current = null;
-    }
+    document.querySelectorAll('audio[id^="audio-"]').forEach((el) => {
+      try {
+        el.pause();
+        el.srcObject = null;
+        el.remove();
+      } catch (e) {}
+    });
+    audioElRef.current = null;
     setCallState('ended');
   };
 

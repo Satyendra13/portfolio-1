@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Optional, Dict, Any
+import numpy as np
 from sqlalchemy import select
 from livekit import rtc
 from livekit.agents import stt, vad, utils
@@ -29,6 +30,12 @@ class AsistLineVoiceWorker:
         self.pipeline = AudioPipeline()
         self.running = False
         self.is_escalated = False
+        self.is_processing_turn = False
+        self.silence_prompt_count = 0
+        self.current_ai_text: str = ""
+        self.current_turn_task: Optional[asyncio.Task] = None
+        self.playback_start_time: float = 0.0
+        self.playback_end_time: float = 0.0
         self.watchdog_task: Optional[asyncio.Task] = None
         self._tasks = []
         self._subscribed_track_sids = set()
@@ -110,14 +117,20 @@ class AsistLineVoiceWorker:
         await self.room.connect(settings.LIVEKIT_URL, token)
         logger.info("Worker connected successfully.")
 
+        def _is_human_specialist(ident: str) -> bool:
+            ident_l = ident.lower()
+            if ident_l.startswith("ai-") or "ai-voice" in ident_l:
+                return False
+            return ident_l.startswith("agent-") or "specialist" in ident_l or "human" in ident_l
+
         # Guard: check if an AI participant is already present
         for p in self.room.remote_participants.values():
             if p.identity.startswith("ai-voice-agent"):
                 logger.warning(f"Room {self.room_name} already has an active AI agent ({p.identity})! Terminating duplicate worker.")
                 await self.room.disconnect()
                 return
-            if "agent" in p.identity.lower():
-                logger.info(f"Human agent {p.identity} already in room. Muting AI.")
+            if _is_human_specialist(p.identity):
+                logger.info(f"Human specialist {p.identity} already in room. Muting AI.")
                 asyncio.create_task(self.mute_and_stand_down())
 
         self.running = True
@@ -129,8 +142,8 @@ class AsistLineVoiceWorker:
 
         @self.room.on("participant_connected")
         def on_participant_connected(participant: rtc.RemoteParticipant):
-            if "agent" in participant.identity.lower():
-                logger.info(f"Human agent {participant.identity} joined room {self.room_name}! Muting AI agent.")
+            if _is_human_specialist(participant.identity):
+                logger.info(f"Human specialist {participant.identity} joined room {self.room_name}! Muting AI agent.")
                 asyncio.create_task(self.mute_and_stand_down())
 
         @self.room.on("track_subscribed")
@@ -171,11 +184,17 @@ class AsistLineVoiceWorker:
         )
         self.state.update(greet_result)
         greet_text = self.state.get("ai_response", "")
+        self.current_ai_text = greet_text
 
-        # Log greet turn & speak
+        # Log greet turn & speak (broadcast caption synchronously with audio playback)
         await self._log_turn("ai", greet_text)
-        await self.broadcast_caption("ai", greet_text)
-        await self.pipeline.speak_text(greet_text, self.audio_source)
+        async def _on_greet_audio_start():
+            self.playback_start_time = asyncio.get_event_loop().time()
+            await self.broadcast_caption("ai", greet_text)
+        try:
+            await self.pipeline.speak_text(greet_text, self.audio_source, on_playback_start=_on_greet_audio_start)
+        finally:
+            self.playback_end_time = asyncio.get_event_loop().time()
         self.last_speech_time = asyncio.get_event_loop().time()
 
         # Start silence watchdog
@@ -183,183 +202,271 @@ class AsistLineVoiceWorker:
         self._tasks.append(self.watchdog_task)
 
     async def _silence_watchdog(self):
-        silence_prompt_count = 0
         while self.running and not getattr(self, "is_escalated", False):
             await asyncio.sleep(2.0)
             if getattr(self, "is_escalated", False):
                 break
+            # If AI is speaking or turn is currently being processed by LLM / graph, DO NOT TRIGGER SILENCE TIMEOUT!
+            if self.pipeline.is_playing or self.is_processing_turn:
+                self.last_speech_time = asyncio.get_event_loop().time()
+                continue
             now = asyncio.get_event_loop().time()
-            if not self.pipeline.is_playing and (now - self.last_speech_time) > settings.DEFAULT_SILENCE_TIMEOUT_SECONDS:
-                if silence_prompt_count == 0:
-                    silence_prompt_count += 1
+            if (now - self.last_speech_time) > settings.DEFAULT_SILENCE_TIMEOUT_SECONDS:
+                if self.silence_prompt_count == 0:
+                    self.silence_prompt_count += 1
                     prompt_text = "Are you still there? Please let me know how I can help you."
-                    await self.broadcast_caption("ai", prompt_text)
-                    await self.pipeline.speak_text(prompt_text, self.audio_source)
+                    self.current_ai_text = prompt_text
+                    async def _on_prompt_start():
+                        self.playback_start_time = asyncio.get_event_loop().time()
+                        await self.broadcast_caption("ai", prompt_text)
+                    try:
+                        await self.pipeline.speak_text(prompt_text, self.audio_source, on_playback_start=_on_prompt_start)
+                    finally:
+                        self.playback_end_time = asyncio.get_event_loop().time()
                     self.last_speech_time = asyncio.get_event_loop().time()
-                elif silence_prompt_count == 1:
-                    silence_prompt_count += 1
+                elif self.silence_prompt_count == 1:
+                    self.silence_prompt_count += 1
                     esc_text = "I haven't heard a response, so I will connect you to our support queue."
+                    self.current_ai_text = esc_text
                     await self._trigger_backend_escalation("Silence timeout", "Customer went silent after prompt.")
-                    await self.broadcast_caption("ai", esc_text)
-                    await self.pipeline.speak_text(esc_text, self.audio_source)
+                    async def _on_esc_start():
+                        self.playback_start_time = asyncio.get_event_loop().time()
+                        await self.broadcast_caption("ai", esc_text)
+                    try:
+                        await self.pipeline.speak_text(esc_text, self.audio_source, on_playback_start=_on_esc_start)
+                    finally:
+                        self.playback_end_time = asyncio.get_event_loop().time()
                     await self.mute_and_stand_down()
                     break
 
     async def _process_audio_stream(self, track: rtc.RemoteAudioTrack, participant: rtc.RemoteParticipant):
         audio_stream = rtc.AudioStream(track, sample_rate=16000, num_channels=1)
-        vad_stream = self.pipeline.vad.stream()
 
-        async with utils.http_context.open():
-            stt_stream = self.pipeline.create_stt_stream()
+        last_interim_text = ""
+        last_handled_text = ""
+        last_handled_time = 0.0
+        active_stt_stream = None
+        consecutive_speech_frames = 0
+        end_speech_fallback_task: Optional[asyncio.Task] = None
 
+        def _is_echo_of_ai(text: str) -> bool:
+            if not self.current_ai_text:
+                return False
+            now = asyncio.get_event_loop().time()
+            if self.pipeline.is_playing or (now - self.playback_end_time) < 1.5:
+                t_lower = text.lower().strip()
+                ai_lower = self.current_ai_text.lower().strip()
+                if len(t_lower) >= 4 and t_lower in ai_lower:
+                    return True
+                t_words = [w for w in t_lower.split() if len(w) > 3]
+                if t_words and sum(1 for w in t_words if w in ai_lower) / len(t_words) >= 0.7:
+                    return True
+            return False
+
+        def _dispatch_turn(text: str, source: str):
+            nonlocal last_handled_text, last_handled_time, last_interim_text
+            cleaned = text.strip()
+            if not cleaned or len(cleaned) < 2:
+                return
+
+            now = asyncio.get_event_loop().time()
+            # Deduplication: do not re-dispatch identical text within 2.5 seconds
+            if cleaned.lower() == last_handled_text.lower() and (now - last_handled_time) < 2.5:
+                return
+
+            # Reject acoustic echo of AI playback from speakers
+            if _is_echo_of_ai(cleaned):
+                logger.info(f"Filtered acoustic echo of AI voice: '{cleaned}'")
+                return
+
+            last_handled_text = cleaned
+            last_handled_time = now
             last_interim_text = ""
-            last_handled_text = ""
-            last_handled_time = 0.0
-            turn_lock = asyncio.Lock()
-            end_speech_fallback_task: Optional[asyncio.Task] = None
+            self.last_speech_time = now
 
-            async def _safe_dispatch_turn(text: str, source: str):
-                nonlocal last_handled_text, last_handled_time, last_interim_text
-                cleaned = text.strip()
-                if not cleaned:
-                    return
+            # If AI is currently speaking, barge in and stop AI playback immediately
+            if self.pipeline.is_playing:
+                logger.info(f"Barge-in: customer spoke ('{cleaned}') while AI was playing - interrupting AI immediately.")
+                self.pipeline.stop_speaking()
 
-                now = asyncio.get_event_loop().time()
-                # Deduplication: do not re-dispatch identical text within 2.5 seconds
-                if cleaned.lower() == last_handled_text.lower() and (now - last_handled_time) < 2.5:
-                    return
+            # If previous turn processing is still in-flight, cancel it to prioritize new user query
+            if self.current_turn_task and not self.current_turn_task.done():
+                logger.info("Cancelling in-flight previous turn to process newest customer speech.")
+                self.current_turn_task.cancel()
 
-                async with turn_lock:
-                    now = asyncio.get_event_loop().time()
-                    if cleaned.lower() == last_handled_text.lower() and (now - last_handled_time) < 2.5:
-                        return
-                    last_handled_text = cleaned
-                    last_handled_time = now
-                    last_interim_text = ""
-                    self.last_speech_time = now
-                    logger.info(f"Captured customer speech via {source}: '{cleaned}'")
-                    await self._handle_user_turn(cleaned)
+            logger.info(f"Dispatching customer turn via {source}: '{cleaned}'")
+            self.current_turn_task = asyncio.create_task(self._handle_user_turn(cleaned))
 
-            async def _listen_vad():
-                nonlocal last_interim_text, end_speech_fallback_task
-                async for event in vad_stream:
-                    if event.type == vad.VADEventType.START_OF_SPEECH:
-                        self.last_speech_time = asyncio.get_event_loop().time()
-                        if end_speech_fallback_task and not end_speech_fallback_task.done():
-                            end_speech_fallback_task.cancel()
-                        # BARGE-IN: User speaks -> stop AI playback in <300ms
-                        if self.pipeline.is_playing:
-                            logger.info("Barge-in detected via Silero VAD! Aborting AI audio.")
-                            self.pipeline.stop_speaking()
-
-                    elif event.type == vad.VADEventType.END_OF_SPEECH:
-                        self.last_speech_time = asyncio.get_event_loop().time()
-                        # Force ElevenLabs STT to commit its buffer immediately
-                        try:
-                            stt_stream.flush()
-                        except Exception:
-                            pass
-
-                        # If FINAL_TRANSCRIPT does not arrive within 350ms, commit interim
-                        async def _fallback_commit():
-                            await asyncio.sleep(0.35)
-                            if last_interim_text:
-                                await _safe_dispatch_turn(last_interim_text, "Silero VAD END_OF_SPEECH (interim)")
-
-                        if end_speech_fallback_task and not end_speech_fallback_task.done():
-                            end_speech_fallback_task.cancel()
-                        end_speech_fallback_task = asyncio.create_task(_fallback_commit())
-
-            async def _listen_stt():
-                nonlocal last_interim_text, end_speech_fallback_task
+        # Resilient STT listener with auto-reconnection and non-blocking event loop
+        async def _run_stt_listener():
+            nonlocal active_stt_stream, last_interim_text, end_speech_fallback_task
+            while self.running and not getattr(self, "is_escalated", False):
                 try:
-                    async for ev in stt_stream:
-                        self.last_speech_time = asyncio.get_event_loop().time()
-                        if ev.type == stt.SpeechEventType.FINAL_TRANSCRIPT:
-                            if end_speech_fallback_task and not end_speech_fallback_task.done():
-                                end_speech_fallback_task.cancel()
-                            text = ev.alternatives[0].text.strip() if ev.alternatives else ""
-                            if not text and last_interim_text:
-                                text = last_interim_text
-                            if text:
-                                logger.info(f"ElevenLabs STT final: '{text}'")
-                                await _safe_dispatch_turn(text, "ElevenLabs STT FINAL_TRANSCRIPT")
-                        elif ev.type == stt.SpeechEventType.INTERIM_TRANSCRIPT:
-                            interim = ev.alternatives[0].text.strip() if ev.alternatives else ""
-                            if interim:
-                                last_interim_text = interim
-                                logger.info(f"ElevenLabs STT hearing: '{interim}'")
-                        elif ev.type == stt.SpeechEventType.END_OF_SPEECH:
-                            if last_interim_text:
-                                await _safe_dispatch_turn(last_interim_text, "ElevenLabs STT END_OF_SPEECH")
+                    async with utils.http_context.open():
+                        stt_stream = self.pipeline.create_stt_stream()
+                        active_stt_stream = stt_stream
+                        logger.info("ElevenLabs STT stream active and listening...")
+                        async for ev in stt_stream:
+                            self.last_speech_time = asyncio.get_event_loop().time()
+                            if ev.type == stt.SpeechEventType.FINAL_TRANSCRIPT:
+                                if end_speech_fallback_task and not end_speech_fallback_task.done():
+                                    end_speech_fallback_task.cancel()
+                                text = ev.alternatives[0].text.strip() if ev.alternatives else ""
+                                if not text and last_interim_text:
+                                    text = last_interim_text
+                                if text:
+                                    logger.info(f"ElevenLabs STT final: '{text}'")
+                                    _dispatch_turn(text, "ElevenLabs STT FINAL_TRANSCRIPT")
+                            elif ev.type == stt.SpeechEventType.INTERIM_TRANSCRIPT:
+                                interim = ev.alternatives[0].text.strip() if ev.alternatives else ""
+                                if interim:
+                                    last_interim_text = interim
+                                    logger.debug(f"ElevenLabs STT hearing: '{interim}'")
+                                    # Fast interim barge-in: If user interrupts AI with spoken words
+                                    now = asyncio.get_event_loop().time()
+                                    if self.pipeline.is_playing and (now - self.playback_start_time) > 0.6:
+                                        if not _is_echo_of_ai(interim) and len(interim) >= 4:
+                                            logger.info(f"Barge-in on interim speech ('{interim}'): aborting AI playback.")
+                                            self.pipeline.stop_speaking()
+                            elif ev.type == stt.SpeechEventType.END_OF_SPEECH:
+                                # When ElevenLabs server VAD emits end of speech, allow 0.6s for final transcript
+                                async def _fallback_commit():
+                                    await asyncio.sleep(0.6)
+                                    if last_interim_text:
+                                        _dispatch_turn(last_interim_text, "ElevenLabs STT END_OF_SPEECH (interim)")
+                                if end_speech_fallback_task and not end_speech_fallback_task.done():
+                                    end_speech_fallback_task.cancel()
+                                end_speech_fallback_task = asyncio.create_task(_fallback_commit())
+                except asyncio.CancelledError:
+                    break
                 except Exception as e:
-                    logger.error(f"Error in STT stream: {e}")
+                    logger.warning(f"ElevenLabs STT stream error: {e}. Reconnecting in 0.5s...")
+                    active_stt_stream = None
+                    await asyncio.sleep(0.5)
 
-            t_vad = asyncio.create_task(_listen_vad())
-            t_stt = asyncio.create_task(_listen_stt())
+        t_stt = asyncio.create_task(_run_stt_listener())
+        self._tasks.append(t_stt)
 
-            frame_count = 0
-            try:
-                async for event in audio_stream:
-                    if not self.running:
-                        break
-                    frame = event.frame if hasattr(event, "frame") else event
-                    frame_count += 1
-                    if frame_count == 1:
-                        logger.info(f"Audio flowing from customer {participant.identity}! Audio stream active (sample_rate={frame.sample_rate}, channels={frame.num_channels}).")
-                    vad_stream.push_frame(frame)
-                    stt_stream.push_frame(frame)
-            finally:
-                if end_speech_fallback_task and not end_speech_fallback_task.done():
-                    end_speech_fallback_task.cancel()
-                t_vad.cancel()
-                t_stt.cancel()
+        frame_count = 0
+        try:
+            async for event in audio_stream:
+                if not self.running or getattr(self, "is_escalated", False):
+                    break
+                frame = event.frame if hasattr(event, "frame") else event
+                frame_count += 1
+                if frame_count == 1:
+                    logger.info(f"Audio flowing from customer {participant.identity}! Audio stream active (sample_rate={frame.sample_rate}, channels={frame.num_channels}).")
+
+                # Audio energy detection & conservative barge-in check
+                try:
+                    samples = np.frombuffer(frame.data, dtype=np.int16)
+                    if len(samples) > 0:
+                        rms = float(np.sqrt(np.mean(np.square(samples.astype(np.float32)))))
+                        if rms > 450.0:
+                            self.last_speech_time = asyncio.get_event_loop().time()
+
+                        if self.pipeline.is_playing:
+                            now = asyncio.get_event_loop().time()
+                            # 0.8s grace period after speech begins to let browser AEC adapt
+                            if (now - self.playback_start_time) > 0.8:
+                                # Genuine voice barge-in requires strong energy (RMS > 1800, approx -25 dBFS)
+                                # and sustained duration (>= 8 frames = 80ms)
+                                if rms > 1800.0:
+                                    consecutive_speech_frames += 1
+                                    if consecutive_speech_frames >= 8:
+                                        logger.info(f"Barge-in detected via voice energy (RMS={rms:.1f})! Aborting AI playback.")
+                                        self.pipeline.stop_speaking()
+                                        consecutive_speech_frames = 0
+                                else:
+                                    consecutive_speech_frames = 0
+                            else:
+                                consecutive_speech_frames = 0
+                        else:
+                            consecutive_speech_frames = 0
+                except Exception:
+                    pass
+
+                # Feed audio frame directly to active ElevenLabs STT stream
+                if active_stt_stream is not None:
+                    try:
+                        active_stt_stream.push_frame(frame)
+                    except Exception:
+                        pass
+        finally:
+            if end_speech_fallback_task and not end_speech_fallback_task.done():
+                end_speech_fallback_task.cancel()
+            t_stt.cancel()
+            if active_stt_stream:
+                try:
+                    await active_stt_stream.aclose()
+                except Exception:
+                    pass
 
     async def _handle_user_turn(self, user_text: str):
-        logger.info(f"Customer turn: '{user_text}'")
-        await self._log_turn("customer", user_text)
-        await self.broadcast_caption("customer", user_text)
-
-        if getattr(self, "is_escalated", False):
-            logger.info(f"Customer turn during human active call: '{user_text}'. Logging only (AI muted).")
-            return
-
-        # Resilient Execution: retry once then auto-escalate per brief requirement
-        try:
-            self.state["user_input"] = user_text
-            result = await agent_graph.ainvoke(
-                self.state,
-                {"configurable": {"thread_id": self.call_id}},
-            )
-            self.state.update(result)
-        except Exception as e:
-            logger.error(f"State machine execution failure: {e}, auto-escalating call.")
-            self.state["escalation_needed"] = True
-            self.state["status"] = "escalated"
-            self.state["escalation_reason"] = f"Technical difficulty: {str(e)}"
-            self.state["escalation_summary"] = f"Auto-escalated on error during query: '{user_text}'"
-            self.state["ai_response"] = "I'm experiencing a technical difficulty on my line. Let me connect you directly to a specialist."
-
-        ai_reply = self.state.get("ai_response", "")
-
-        is_escalating = bool(self.state.get("escalation_needed") and self.state.get("status") == "escalated")
-
-        # Check if escalation node fired
-        if is_escalating:
-            await self._trigger_backend_escalation(
-                reason=self.state.get("escalation_reason", "AI handoff"),
-                summary=self.state.get("escalation_summary", user_text),
-            )
-
-        # Log AI response turn & speak
-        await self._log_turn("ai", ai_reply)
-        await self.broadcast_caption("ai", ai_reply)
-        await self.pipeline.speak_text(ai_reply, self.audio_source)
+        self.is_processing_turn = True
+        self.silence_prompt_count = 0
         self.last_speech_time = asyncio.get_event_loop().time()
 
-        if is_escalating:
-            logger.info("AI handoff announcement completed. Standing down AI worker.")
-            await self.mute_and_stand_down()
+        try:
+            logger.info(f"Customer turn: '{user_text}'")
+            await self._log_turn("customer", user_text)
+            await self.broadcast_caption("customer", user_text)
+
+            if getattr(self, "is_escalated", False):
+                logger.info(f"Customer turn during human active call: '{user_text}'. Logging only (AI muted).")
+                return
+
+            # Resilient Execution: retry once then auto-escalate per brief requirement
+            try:
+                self.state["user_input"] = user_text
+                result = await agent_graph.ainvoke(
+                    self.state,
+                    {"configurable": {"thread_id": self.call_id}},
+                )
+                self.state.update(result)
+            except asyncio.CancelledError:
+                logger.info(f"Turn handling for '{user_text}' cancelled by new utterance.")
+                raise
+            except Exception as e:
+                logger.error(f"State machine execution failure: {e}, auto-escalating call.")
+                self.state["escalation_needed"] = True
+                self.state["status"] = "escalated"
+                self.state["escalation_reason"] = f"Technical difficulty: {str(e)}"
+                self.state["escalation_summary"] = f"Auto-escalated on error during query: '{user_text}'"
+                self.state["ai_response"] = "I'm experiencing a technical difficulty on my line. Let me connect you directly to a specialist."
+
+            ai_reply = self.state.get("ai_response", "")
+            self.current_ai_text = ai_reply
+
+            is_escalating = bool(self.state.get("escalation_needed") and self.state.get("status") == "escalated")
+
+            # Check if escalation node fired
+            if is_escalating:
+                await self._trigger_backend_escalation(
+                    reason=self.state.get("escalation_reason", "AI handoff"),
+                    summary=self.state.get("escalation_summary", user_text),
+                )
+
+            # Log AI response turn & speak (broadcast caption synchronously with audio playback start)
+            await self._log_turn("ai", ai_reply)
+            async def _on_audio_start():
+                self.playback_start_time = asyncio.get_event_loop().time()
+                await self.broadcast_caption("ai", ai_reply)
+
+            try:
+                await self.pipeline.speak_text(ai_reply, self.audio_source, on_playback_start=_on_audio_start)
+            finally:
+                self.playback_end_time = asyncio.get_event_loop().time()
+
+            if is_escalating:
+                logger.info("AI handoff announcement completed. Standing down AI worker.")
+                await self.mute_and_stand_down()
+        except asyncio.CancelledError:
+            logger.info("AI turn processing cancelled by barge-in or shutdown.")
+            self.pipeline.stop_speaking()
+        finally:
+            self.is_processing_turn = False
+            self.last_speech_time = asyncio.get_event_loop().time()
 
     async def _log_turn(self, speaker: str, text: str):
         if not self.call_id or self.call_id == "mock":

@@ -27,6 +27,9 @@ logger = logging.getLogger("asistline.calls")
 active_call_workers = {}
 
 async def _launch_ai_worker(room_name: str, call_id: str, tenant_id: str, language: str):
+    if call_id in active_call_workers and getattr(active_call_workers[call_id], "running", False):
+        logger.info(f"Worker already running for call {call_id}. Skipping duplicate launch.")
+        return
     try:
         from backend.agent_worker.worker import AsistLineVoiceWorker
         worker = AsistLineVoiceWorker(room_name, call_id, tenant_id, language)

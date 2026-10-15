@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 from livekit import rtc
 from livekit.agents import utils
 from livekit.plugins import elevenlabs, silero
@@ -24,7 +24,7 @@ class AudioPipeline:
         self.tts = elevenlabs.TTS(
             api_key=settings.ELEVENLABS_API_KEY,
             voice_id=self.voice_id,
-            encoding="mp3_44100_128",
+            encoding="pcm_24000",
             voice_settings=elevenlabs.VoiceSettings(
                 stability=0.71,
                 similarity_boost=0.8,
@@ -40,7 +40,7 @@ class AudioPipeline:
         self.stt._session = None
         return self.stt.stream()
 
-    async def _stream_edge_tts(self, text: str, audio_source: rtc.AudioSource):
+    async def _stream_edge_tts(self, text: str, audio_source: rtc.AudioSource, on_playback_start: Optional[Callable[[], Any]] = None):
         import io
         import av
         import edge_tts
@@ -60,12 +60,20 @@ class AudioPipeline:
 
         container = av.open(io.BytesIO(mp3_data))
         reformat = av.AudioResampler(format='s16', layout='mono', rate=24000)
+        started_playback = False
         for frame in container.decode(audio=0):
             if not self.is_playing:
                 break
             for r in reformat.resample(frame):
                 if not self.is_playing:
                     break
+                if not started_playback:
+                    started_playback = True
+                    if on_playback_start:
+                        if asyncio.iscoroutinefunction(on_playback_start):
+                            asyncio.create_task(on_playback_start())
+                        else:
+                            on_playback_start()
                 lk_frame = rtc.AudioFrame(
                     data=r.to_ndarray().tobytes(),
                     sample_rate=24000,
@@ -81,10 +89,13 @@ class AudioPipeline:
         text: str,
         audio_source: rtc.AudioSource,
         on_barge_in: Optional[Callable[[], None]] = None,
+        on_playback_start: Optional[Callable[[], Any]] = None,
     ):
         """
         Synthesize text using ElevenLabs TTS (with automatic Edge Neural fallback)
-        and stream frames to audio_source. Allows cancellation within <300ms if barge-in occurs.
+        and stream frames to audio_source with real-time pacing.
+        Allows cancellation within <300ms if barge-in occurs.
+        on_playback_start is triggered precisely when the first audio frame begins playing.
         """
         # Cancel any previous speaking task
         self.stop_speaking()
@@ -93,6 +104,17 @@ class AudioPipeline:
             self.is_playing = True
             resampler = None
             eleven_success = False
+            started_playback = False
+
+            def _trigger_playback_start():
+                nonlocal started_playback
+                if not started_playback:
+                    started_playback = True
+                    if on_playback_start:
+                        if asyncio.iscoroutinefunction(on_playback_start):
+                            asyncio.create_task(on_playback_start())
+                        else:
+                            on_playback_start()
 
             try:
                 try:
@@ -108,6 +130,7 @@ class AudioPipeline:
                                 break
                             if chunk.frame:
                                 eleven_success = True
+                                _trigger_playback_start()
                                 if (
                                     chunk.frame.sample_rate != audio_source.sample_rate
                                     or chunk.frame.num_channels != audio_source.num_channels
@@ -119,9 +142,23 @@ class AudioPipeline:
                                             num_channels=audio_source.num_channels,
                                         )
                                     for f in resampler.push(chunk.frame):
+                                        if not self.is_playing:
+                                            break
+                                        dur = f.samples_per_channel / audio_source.sample_rate
                                         await audio_source.capture_frame(f)
+                                        await asyncio.sleep(dur * 0.95)
                                 else:
+                                    dur = chunk.frame.samples_per_channel / audio_source.sample_rate
                                     await audio_source.capture_frame(chunk.frame)
+                                    await asyncio.sleep(dur * 0.95)
+
+                        if resampler and self.is_playing:
+                            for f in resampler.flush():
+                                if not self.is_playing:
+                                    break
+                                dur = f.samples_per_channel / audio_source.sample_rate
+                                await audio_source.capture_frame(f)
+                                await asyncio.sleep(dur * 0.95)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
@@ -130,7 +167,7 @@ class AudioPipeline:
 
                 if not eleven_success and self.is_playing:
                     try:
-                        await self._stream_edge_tts(text, audio_source)
+                        await self._stream_edge_tts(text, audio_source, on_playback_start=on_playback_start)
                     except asyncio.CancelledError:
                         raise
                     except Exception as e:

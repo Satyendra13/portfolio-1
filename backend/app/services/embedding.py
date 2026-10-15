@@ -36,24 +36,35 @@ def _fallback_embedding(text: str, dim: int = 768) -> List[float]:
         vec = [x / norm for x in vec]
     return vec
 
+_embedding_cache: dict[str, List[float]] = {}
+
 async def generate_embedding(text: str) -> List[float]:
     """
-    Generate embedding for text using Gemini text-embedding-004 model.
+    Generate embedding for text using Gemini model with in-memory caching to save API quota.
     """
+    clean_text = text.strip().lower()
+    if clean_text in _embedding_cache:
+        return _embedding_cache[clean_text]
+
     client = get_genai_client()
     if client:
         try:
-            response = client.models.embed_content(
+            import asyncio
+            response = await asyncio.to_thread(
+                client.models.embed_content,
                 model=settings.GEMINI_EMBEDDING_MODEL,
                 contents=text,
             )
             if response and response.embeddings:
-                emb = response.embeddings[0].values
-                return list(emb)
+                emb = list(response.embeddings[0].values)
+                _embedding_cache[clean_text] = emb
+                return emb
         except Exception as e:
             print(f"Gemini embedding API error: {e}, falling back to local embedding.")
     
-    return _fallback_embedding(text, dim=settings.EMBEDDING_DIMENSION)
+    fallback = _fallback_embedding(text, dim=settings.EMBEDDING_DIMENSION)
+    _embedding_cache[clean_text] = fallback
+    return fallback
 
 async def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
     """

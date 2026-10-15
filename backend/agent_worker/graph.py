@@ -61,41 +61,58 @@ async def greet_node(state: AgentState) -> Dict[str, Any]:
 # 2. Analyze Node
 async def analyze_node(state: AgentState) -> Dict[str, Any]:
     user_text = state.get("user_input", "").strip()
-    analysis = await llm_client.analyze_intent_json(user_text)
-
-    order_id = analysis.get("order_id") or state.get("order_id")
-    phone_last4 = analysis.get("phone_last4") or state.get("phone_last4")
-
-    # Simple regex fallback if numbers are in speech
-    import re
-    if not order_id:
-        num_matches = re.findall(r'\b\d{5}\b', user_text)
-        if num_matches:
-            order_id = num_matches[0]
-    if not phone_last4:
-        num_matches = re.findall(r'\b\d{4}\b', user_text)
-        if num_matches:
-            phone_last4 = num_matches[-1]
-
-    # Quick heuristic check for audio/presence checks and simple greetings
     user_lower = user_text.lower().strip()
+    import re
+
+    order_id = state.get("order_id")
+    phone_last4 = state.get("phone_last4")
+    num_5 = re.findall(r'\b\d{5}\b', user_text)
+    num_4 = re.findall(r'\b\d{4}\b', user_text)
+    if num_5:
+        order_id = num_5[0]
+    if num_4:
+        phone_last4 = num_4[-1]
+
+    # Fast-Path Heuristics: Saves Gemini API quota (15 RPM Free Tier limit)
     audio_check_keywords = [
         "audible", "hear me", "you hear", "you listening", "are you there",
         "can you hear", "am i speaking", "am i clear"
     ]
     greeting_keywords = ["hello", "hi", "hey", "hallo", "good morning", "good afternoon", "good evening", "namaste"]
+    gratitude_keywords = ["thank you", "thanks", "appreciate it", "bye", "goodbye", "that's all", "that is all", "have a good day"]
+    human_keywords = ["human", "agent", "person", "representative", "specialist", "supervisor", "transfer me"]
+    order_keywords = ["track order", "order status", "where is my order", "my package", "shipment"]
 
-    intent = analysis.get("intent", "faq")
-    if any(k in user_lower for k in audio_check_keywords):
+    wants_human = any(w in user_lower for w in human_keywords)
+    is_angry = any(w in user_lower for w in ["terrible", "angry", "furious", "ridiculous", "worst", "unacceptable"])
+
+    if wants_human:
+        intent = "escalate"
+    elif any(k in user_lower for k in audio_check_keywords):
         intent = "audio_check"
+    elif any(k in user_lower for k in gratitude_keywords):
+        intent = "gratitude"
     elif any(user_lower == k or user_lower.startswith(k + " ") or user_lower.endswith(" " + k) for k in greeting_keywords):
-        if intent not in ["order_status", "verify", "escalate"]:
-            intent = "greeting"
+        intent = "greeting"
+    elif (num_5 or num_4 or any(k in user_lower for k in order_keywords)) and state.get("verification_step") != "verified":
+        intent = "verify" if state.get("verification_step") == "requested" else "order_status"
+    else:
+        # Only invoke Gemini Intent Analyzer when fast-path heuristics are inconclusive
+        analysis = await llm_client.analyze_intent_json(user_text)
+        intent = analysis.get("intent", "faq")
+        if not order_id:
+            order_id = analysis.get("order_id")
+        if not phone_last4:
+            phone_last4 = analysis.get("phone_last4")
+        if analysis.get("wants_human"):
+            wants_human = True
+        if analysis.get("is_angry"):
+            is_angry = True
 
     return {
         "intent": intent,
-        "is_angry": analysis.get("is_angry", False),
-        "wants_human": analysis.get("wants_human", False),
+        "is_angry": is_angry,
+        "wants_human": wants_human,
         "order_id": order_id,
         "phone_last4": phone_last4,
         "transcript_turns": state.get("transcript_turns", []) + [{"speaker": "customer", "text": user_text}],
@@ -219,6 +236,18 @@ async def answer_node(state: AgentState) -> Dict[str, Any]:
             "transcript_turns": state.get("transcript_turns", []) + [{"speaker": "ai", "text": reply}],
         }
 
+    # Direct conversational response for gratitude and call wrapping
+    if intent == "gratitude":
+        if lang == "hi":
+            reply = "आपका बहुत-बहुत धन्यवाद! यदि आपको कोई अन्य सहायता चाहिए तो अवश्य बताएं। आपका दिन शुभ हो!"
+        else:
+            reply = "You are very welcome! Please let me know if there is anything else I can help you with. Have a great day!"
+        return {
+            "ai_response": reply,
+            "repeat_failures": 0,
+            "transcript_turns": state.get("transcript_turns", []) + [{"speaker": "ai", "text": reply}],
+        }
+
     has_grounding = state.get("has_grounding", False)
     kb_context = state.get("kb_context", "")
     tenant_name = state.get("tenant_name", "Support")
@@ -326,7 +355,7 @@ def route_after_analyze(state: AgentState) -> str:
     if state.get("is_angry"):
         state["escalation_reason"] = "Detected customer frustration / angry sentiment"
         return "escalate"
-    if state.get("intent") in ["audio_check", "greeting"]:
+    if state.get("intent") in ["audio_check", "greeting", "gratitude"]:
         return "answer"
     # If caller is already verified, allow answering follow-up questions with verified order context
     if state.get("verification_step") == "verified":

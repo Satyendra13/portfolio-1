@@ -213,15 +213,27 @@ export default function App() {
       });
       roomRef.current = room;
 
+      const attachAudioTrack = (track, identity) => {
+        const audioId = `agent-listen-${identity}`;
+        const existing = document.getElementById(audioId);
+        if (existing) {
+          try {
+            existing.pause();
+            existing.remove();
+          } catch (e) {}
+        }
+        const el = track.attach();
+        el.id = audioId;
+        el.autoplay = true;
+        document.body.appendChild(el);
+        audioElRef.current = el;
+        el.play().catch(console.warn);
+      };
+
       room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
         if (track.kind === 'audio') {
           console.log(`Agent subscribed to audio from: ${participant.identity}`);
-          const el = track.attach();
-          el.id = `agent-listen-${participant.identity}`;
-          el.autoplay = true;
-          document.body.appendChild(el);
-          audioElRef.current = el;
-          el.play().catch(console.warn);
+          attachAudioTrack(track, participant.identity);
         }
       });
 
@@ -240,21 +252,6 @@ export default function App() {
       });
 
       await room.connect(livekit_url, livekit_token);
-
-      // Attach any already published audio tracks
-      room.remoteParticipants.forEach((p) => {
-        p.trackPublications.forEach((pub) => {
-          if (pub.track && pub.track.kind === 'audio') {
-            console.log(`Agent attaching pre-existing track from ${p.identity}`);
-            const el = pub.track.attach();
-            el.id = `agent-listen-${p.identity}`;
-            el.autoplay = true;
-            document.body.appendChild(el);
-            audioElRef.current = el;
-            el.play().catch(console.warn);
-          }
-        });
-      });
 
       await room.localParticipant.setMicrophoneEnabled(true);
 
@@ -284,10 +281,14 @@ export default function App() {
       await roomRef.current.disconnect();
       roomRef.current = null;
     }
-    if (audioElRef.current) {
-      audioElRef.current.remove();
-      audioElRef.current = null;
-    }
+    document.querySelectorAll('audio[id^="agent-listen-"]').forEach((el) => {
+      try {
+        el.pause();
+        el.srcObject = null;
+        el.remove();
+      } catch (e) {}
+    });
+    audioElRef.current = null;
     if (selectedEscalation) {
       try {
         await fetch(`${API_BASE}/escalations/${selectedEscalation.id}/resolve`, { method: 'POST' });

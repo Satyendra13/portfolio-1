@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # Operational thresholds
     DEFAULT_KB_MIN_SCORE: float = 0.45
     DEFAULT_QUEUE_TIMEOUT_SECONDS: int = 45
-    DEFAULT_SILENCE_TIMEOUT_SECONDS: float = 6.0
+    DEFAULT_SILENCE_TIMEOUT_SECONDS: float = 18.0
 
     # Mock Backends URL
     MOCK_BACKENDS_URL: str = "http://localhost:9000"
